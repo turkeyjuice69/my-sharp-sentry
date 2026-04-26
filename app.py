@@ -1,125 +1,110 @@
 import streamlit as st
-import pandas as pd
 
-# --- PAGE CONFIG ---
+# 1. FORCE THE LAYOUT TO MOBILE-PRO
 st.set_page_config(page_title="SENTRY ELITE PRO", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CUSTOM PRO UI STYLING ---
+# 2. THE SECRET SAUCE: CSS INJECTION
+# This makes it look like an app, not a website.
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    [data-testid="stAppViewContainer"] { background-color: #0E1117; }
+    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
     
-    html, body, [class*="css"] {
+    .main-title {
         font-family: 'Inter', sans-serif;
-        background-color: #0E1117;
-        color: #FFFFFF;
+        color: #3E63DD;
+        text-align: center;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-bottom: 20px;
     }
-    
-    /* Card Styling */
-    .stMetric {
-        background: #1A1C24;
-        border-radius: 12px;
-        padding: 15px;
-        border: 1px solid #2D3139;
-    }
-    
-    /* Master Board Card */
+
     .bet-card {
-        background: linear-gradient(145deg, #1e2129, #16181d);
-        border-radius: 15px;
-        padding: 18px;
-        margin-bottom: 15px;
-        border-left: 5px solid #3E63DD;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        background: #1A1C24;
+        border: 1px solid #2D3139;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
-    
-    /* Badge Logic Colors */
+
+    .team-name { font-size: 18px; font-weight: 700; color: white; }
     .badge {
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 4px;
         font-size: 10px;
-        text-transform: uppercase;
-        margin-right: 5px;
+        font-weight: 900;
+        margin-left: 5px;
     }
-    .sharp { background-color: #00E676; color: #000; }
-    .whale { background-color: #D500F9; color: #fff; }
-    .trap { background-color: #FF1744; color: #fff; }
+    .sharp { background: #00E676; color: black; }
+    .whale { background: #D500F9; color: white; }
+    .trap { background: #FF1744; color: white; }
     
-    /* Money Discrepancy Highlight */
-    .money-flow {
-        font-size: 18px;
-        font-weight: 700;
-        color: #00E676;
-    }
-    .market-price {
-        color: #888DA8;
-        font-size: 14px;
-        text-decoration: line-through;
+    .money-flow { color: #00E676; font-size: 22px; font-weight: 800; }
+    .label { color: #888DA8; font-size: 11px; text-transform: uppercase; }
+    .discrepancy-box {
+        background: #252833;
+        padding: 8px;
+        border-radius: 6px;
+        margin-top: 10px;
+        border-left: 3px solid #00E676;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGIC: BADGE GENERATOR ---
-def get_badges(row):
-    badges = []
-    # SHARP: High handle on low bet count
-    if row['money_pct'] - row['bets_pct'] > 15:
-        badges.append('<span class="badge sharp">SHARP</span>')
-    # WHALE: massive individual tickets
-    if row['avg_bet'] > 500:
-        badges.append('<span class="badge whale">WHALE</span>')
-    # TRAP: Public heavy one way, line moving the other
-    if row['bets_pct'] > 70 and row['line_movement'] == "Reverse":
-        badges.append('<span class="badge trap">TRAP</span>')
-    return "".join(badges)
-
-# --- MOCK DATA (Replace with your API/Scraper) ---
-data = [
-    {"team": "Lakers", "opp": "Nuggets", "spread": "+4.5", "money_pct": 78, "bets_pct": 45, "avg_bet": 850, "line_movement": "Stable", "icon": "🏀"},
-    {"team": "Chiefs", "opp": "Bills", "spread": "-3.0", "money_pct": 30, "bets_pct": 82, "avg_bet": 45, "line_movement": "Reverse", "icon": "🏈"},
-    {"team": "Rangers", "opp": "Devils", "spread": "ML", "money_pct": 55, "bets_pct": 52, "avg_bet": 120, "line_movement": "Stable", "icon": "🏒"},
+# 3. MOCK DATA (This is where your scraper/API feed goes)
+games = [
+    {"icon": "🏀", "team": "Lakers", "opp": "Nuggets", "spread": "+4.5", "money": 78, "bets": 45, "avg": 850, "type": "SHARP"},
+    {"icon": "🏈", "team": "Chiefs", "opp": "Bills", "spread": "-3.0", "money": 30, "bets": 82, "avg": 45, "type": "TRAP"},
+    {"icon": "🏒", "team": "Rangers", "opp": "Devils", "spread": "ML", "money": 55, "bets": 52, "avg": 120, "type": "NONE"}
 ]
 
-# --- MAIN UI ---
-st.markdown("<h1 style='text-align: center; color: #3E63DD;'>SENTRY ELITE <span style='color:white'>PRO UI</span></h1>", unsafe_allow_html=True)
+# 4. HEADER
+st.markdown('<h1 class="main-title">SENTRY ELITE <span style="color:white">PRO UI</span></h1>', unsafe_allow_html=True)
 
-for game in data:
-    badges_html = get_badges(game)
-    discrepancy = game['money_pct'] - game['bets_pct']
+# 5. THE RENDER LOOP
+# We bundle the entire card into ONE st.markdown call to ensure it renders correctly.
+for g in games:
+    # Logic for badges
+    badge_html = ""
+    if g['type'] == "SHARP":
+        badge_html = '<span class="badge sharp">SHARP</span>'
+    elif g['type'] == "TRAP":
+        badge_html = '<span class="badge trap">TRAP</span>'
     
-    with st.container():
-        st.markdown(f"""
+    diff = g['money'] - g['bets']
+    
+    # THE BIG RENDER
+    st.markdown(f"""
         <div class="bet-card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <span style="font-size: 20px;">{game['icon']}</span>
-                    <span style="font-weight: 700; font-size: 18px; margin-left: 8px;">{game['team']} vs {game['opp']}</span>
+                    <span style="font-size: 20px;">{g['icon']}</span>
+                    <span class="team-name">{g['team']} <span style="color:#444; font-weight:400;">vs</span> {g['opp']}</span>
                 </div>
-                <div>
-                    {badges_html}
-                </div>
+                <div>{badge_html}</div>
             </div>
             
-            <hr style="border: 0.5px solid #2D3139; margin: 15px 0;">
+            <hr style="border: 0; border-top: 1px solid #2D3139; margin: 12px 0;">
             
             <div style="display: flex; justify-content: space-between;">
                 <div>
-                    <p style="color: #888DA8; font-size: 12px; margin-bottom: 2px;">ACTUAL MONEY FLOW</p>
-                    <span class="money-flow">{game['money_pct']}%</span> 
-                    <span style="font-size: 12px; color: #444;">({game['bets_pct']}% Bets)</span>
+                    <div class="label">Actual Money Flow</div>
+                    <div class="money-flow">{g['money']}%</div>
+                    <div style="color:#555; font-size:12px;">from {g['bets']}% of bets</div>
                 </div>
                 <div style="text-align: right;">
-                    <p style="color: #888DA8; font-size: 12px; margin-bottom: 2px;">PROJECTION</p>
-                    <span style="font-weight: 700;">{game['spread']}</span>
+                    <div class="label">Current Line</div>
+                    <div style="font-size: 18px; font-weight: 700;">{g['spread']}</div>
                 </div>
             </div>
             
-            <div style="margin-top: 10px; background: #0E1117; border-radius: 8px; padding: 10px;">
-                <span style="font-size: 12px; color: #00E676;">⚡ Discrepancy: +{discrepancy}% more money than public bets</span>
+            <div class="discrepancy-box">
+                <span style="color: #00E676; font-size: 12px; font-weight: 600;">
+                    ⚡ +{diff}% Money Discrepancy detected
+                </span>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- FOOTER ---
-st.markdown("<p style='text-align: center; color: #444; font-size: 10px;'>SENTRY ELITE V3.0 | LIVE PRO DATA FEED</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #444; font-size: 10px; margin-top: 20px;'>V3.2 | MASTER BOARD LIVE</p>", unsafe_allow_html=True)
