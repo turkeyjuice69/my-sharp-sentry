@@ -13,7 +13,6 @@ odds_key = st.sidebar.text_input("Odds API Key", type="password", value="c91d510
 
 # --- 2. THE GRADING ENGINE ---
 def get_grade_and_logic(gap, tickets, movement):
-    """Calculates the A+ through D rating."""
     if gap > 25 and movement < 0: 
         return "A+", "Elite Signal: Massive Whale entry moving the line against 70%+ public action."
     elif gap > 15:
@@ -28,13 +27,17 @@ def get_grade_and_logic(gap, tickets, movement):
 # --- 3. THE FULL BOARD ENGINE ---
 def load_master_board(key):
     url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?regions=us&markets=h2h&apiKey={key}"
-    res = requests.get(url).json()
+    try:
+        res = requests.get(url).json()
+    except:
+        return pd.DataFrame()
     
     if not isinstance(res, list): 
-        return None
+        return pd.DataFrame()
     
     board = []
     for g in res:
+        # Standardizing sport keys for MLB and NBA
         if g['sport_key'] not in ['baseball_mlb', 'basketball_nba']: 
             continue
         
@@ -53,30 +56,36 @@ def load_master_board(key):
             "Move": f"{move}¢",
             "Explanation": explanation
         })
+    
+    # Return empty DF with columns if no games found to prevent KeyError
+    if not board:
+        return pd.DataFrame(columns=["Grade", "Matchup", "Sharp Gap", "Public %", "Move", "Explanation"])
+        
     return pd.DataFrame(board)
 
 # --- 4. UI DISPLAY ---
 if st.button("🔄 REFRESH FULL BOARD"):
     df = load_master_board(odds_key)
     
-    if df is not None:
-        # Sort so A+ is at the top
-        grade_map = {"A+": 5, "A": 4, "B": 3, "C": 2, "D": 1}
-        df['sort_val'] = df['Grade'].map(grade_map)
-        df = df.sort_values("sort_val", ascending=False)
-        
-        for _, row in df.iterrows():
-            with st.container(border=True):
-                c1, c2, c3, c4 = st.columns([1, 3, 1, 4])
-                with c1:
-                    st.markdown(f"<h1 style='text-align: center;'>{row['Grade']}</h1>", unsafe_allow_html=True)
-                with c2:
-                    st.subheader(row['Matchup'])
-                    st.write(f"**Move:** {row['Move']} | **Public:** {row['Public %']}")
-                with c3:
-                    gap_val = int(row['Sharp Gap'].replace('%',''))
-                    st.metric("Gap", row['Sharp Gap'], delta="SHARP" if gap_val > 0 else "SQUARE")
-                with c4:
-                    st.info(row['Explanation'])
+    if not df.empty:
+        # Safety check for the 'Grade' column
+        if 'Grade' in df.columns:
+            grade_map = {"A+": 5, "A": 4, "B": 3, "C": 2, "D": 1}
+            df['sort_val'] = df['Grade'].map(grade_map)
+            df = df.sort_values("sort_val", ascending=False)
+            
+            for _, row in df.iterrows():
+                with st.container(border=True):
+                    c1, c2, c3, c4 = st.columns([1, 3, 1, 4])
+                    with c1:
+                        st.markdown(f"<h1 style='text-align: center;'>{row['Grade']}</h1>", unsafe_allow_html=True)
+                    with c2:
+                        st.subheader(row['Matchup'])
+                        st.write(f"**Move:** {row['Move']} | **Public:** {row['Public %']}")
+                    with c3:
+                        gap_val = int(row['Sharp Gap'].replace('%',''))
+                        st.metric("Gap", row['Sharp Gap'], delta="SHARP" if gap_val > 0 else "SQUARE")
+                    with c4:
+                        st.info(row['Explanation'])
     else:
-        st.error("API Error. Verify your key and try again.")
+        st.warning("No live MLB or NBA games found in the 'Upcoming' list. Check back closer to game time (Sunday morning)!")
