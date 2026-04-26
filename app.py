@@ -35,7 +35,7 @@ def get_grade_and_logic(gap, tickets, movement):
 
 # --- 3. THE FULL BOARD ENGINE ---
 def load_master_board(key):
-    url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?regions=us&markets=h2h&apiKey={key}"
+  url = f"https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?regions=us&markets=h2h&apiKey={key}"
     res = requests.get(url).json()
     
     if not isinstance(res, list): return None
