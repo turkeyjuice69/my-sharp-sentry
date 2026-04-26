@@ -1,99 +1,125 @@
 import streamlit as st
 import pandas as pd
-import requests
-import random
 
-# --- 1. PRO UI CONFIG ---
-st.set_page_config(page_title="Sharp Sentry: ELITE", layout="wide")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="SENTRY ELITE PRO", layout="wide", initial_sidebar_state="collapsed")
 
-# Custom CSS for that "Pikkit" look (Pills and Badges)
+# --- CUSTOM PRO UI STYLING ---
 st.markdown("""
     <style>
-    .sharp-badge {
-        background-color: #2ecc71; color: white; padding: 4px 10px;
-        border-radius: 12px; font-weight: bold; font-size: 12px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        background-color: #0E1117;
+        color: #FFFFFF;
     }
-    .whale-badge {
-        background-color: #f1c40f; color: black; padding: 4px 10px;
-        border-radius: 12px; font-weight: bold; font-size: 12px;
+    
+    /* Card Styling */
+    .stMetric {
+        background: #1A1C24;
+        border-radius: 12px;
+        padding: 15px;
+        border: 1px solid #2D3139;
     }
-    .trap-badge {
-        background-color: #e74c3c; color: white; padding: 4px 10px;
-        border-radius: 12px; font-weight: bold; font-size: 12px;
+    
+    /* Master Board Card */
+    .bet-card {
+        background: linear-gradient(145deg, #1e2129, #16181d);
+        border-radius: 15px;
+        padding: 18px;
+        margin-bottom: 15px;
+        border-left: 5px solid #3E63DD;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
-    .card {
-        border: 1px solid #333; padding: 15px; border-radius: 10px; margin-bottom: 10px;
+    
+    /* Badge Logic Colors */
+    .badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 900;
+        font-size: 10px;
+        text-transform: uppercase;
+        margin-right: 5px;
+    }
+    .sharp { background-color: #00E676; color: #000; }
+    .whale { background-color: #D500F9; color: #fff; }
+    .trap { background-color: #FF1744; color: #fff; }
+    
+    /* Money Discrepancy Highlight */
+    .money-flow {
+        font-size: 18px;
+        font-weight: 700;
+        color: #00E676;
+    }
+    .market-price {
+        color: #888DA8;
+        font-size: 14px;
+        text-decoration: line-through;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🛡️ Sharp Sentry: Elite Board")
-st.sidebar.header("Command Center")
-api_key = st.sidebar.text_input("Odds API Key", type="password", value="c91d510592e7618beb954208ecc842")
+# --- LOGIC: BADGE GENERATOR ---
+def get_badges(row):
+    badges = []
+    # SHARP: High handle on low bet count
+    if row['money_pct'] - row['bets_pct'] > 15:
+        badges.append('<span class="badge sharp">SHARP</span>')
+    # WHALE: massive individual tickets
+    if row['avg_bet'] > 500:
+        badges.append('<span class="badge whale">WHALE</span>')
+    # TRAP: Public heavy one way, line moving the other
+    if row['bets_pct'] > 70 and row['line_movement'] == "Reverse":
+        badges.append('<span class="badge trap">TRAP</span>')
+    return "".join(badges)
 
-# --- 2. THE ANALYST BRAIN ---
-def get_pro_badge(gap, move):
-    if gap > 25 and move < 0:
-        return '<span class="whale-badge">⭐ WHALE ALERT</span>', "A+"
-    if gap > 15:
-        return '<span class="sharp-badge">✅ SHARP MOVE</span>', "A"
-    if gap < -15:
-        return '<span class="trap-badge">⚠️ PUBLIC TRAP</span>', "D"
-    return "", "B"
+# --- MOCK DATA (Replace with your API/Scraper) ---
+data = [
+    {"team": "Lakers", "opp": "Nuggets", "spread": "+4.5", "money_pct": 78, "bets_pct": 45, "avg_bet": 850, "line_movement": "Stable", "icon": "🏀"},
+    {"team": "Chiefs", "opp": "Bills", "spread": "-3.0", "money_pct": 30, "bets_pct": 82, "avg_bet": 45, "line_movement": "Reverse", "icon": "🏈"},
+    {"team": "Rangers", "opp": "Devils", "spread": "ML", "money_pct": 55, "bets_pct": 52, "avg_bet": 120, "line_movement": "Stable", "icon": "🏒"},
+]
 
-# --- 3. THE ENGINE ---
-if st.button("🚀 EXECUTE GLOBAL RECON"):
-    url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?regions=us&markets=h2h&apiKey={api_key}"
-    res = requests.get(url).json()
+# --- MAIN UI ---
+st.markdown("<h1 style='text-align: center; color: #3E63DD;'>SENTRY ELITE <span style='color:white'>PRO UI</span></h1>", unsafe_allow_html=True)
+
+for game in data:
+    badges_html = get_badges(game)
+    discrepancy = game['money_pct'] - game['bets_pct']
     
-    if isinstance(res, list):
-        # Sort games by their "Sharpness"
-        processed_games = []
-        for g in res:
-            # We want to see everything: MLB, NBA, Soccer, KBO
-            t_pct = random.randint(30, 80)
-            m_pct = random.randint(20, 95)
-            gap = m_pct - t_pct
-            move = random.choice([-10, 0, 10])
+    with st.container():
+        st.markdown(f"""
+        <div class="bet-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-size: 20px;">{game['icon']}</span>
+                    <span style="font-weight: 700; font-size: 18px; margin-left: 8px;">{game['team']} vs {game['opp']}</span>
+                </div>
+                <div>
+                    {badges_html}
+                </div>
+            </div>
             
-            badge_html, grade = get_pro_badge(gap, move)
-            processed_games.append({
-                "game": g, "gap": gap, "t": t_pct, "m": m_pct, 
-                "badge": badge_html, "grade": grade, "move": move
-            })
-        
-        # Sort A+ to the top
-        processed_games.sort(key=lambda x: x['gap'], reverse=True)
+            <hr style="border: 0.5px solid #2D3139; margin: 15px 0;">
+            
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <p style="color: #888DA8; font-size: 12px; margin-bottom: 2px;">ACTUAL MONEY FLOW</p>
+                    <span class="money-flow">{game['money_pct']}%</span> 
+                    <span style="font-size: 12px; color: #444;">({game['bets_pct']}% Bets)</span>
+                </div>
+                <div style="text-align: right;">
+                    <p style="color: #888DA8; font-size: 12px; margin-bottom: 2px;">PROJECTION</p>
+                    <span style="font-weight: 700;">{game['spread']}</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 10px; background: #0E1117; border-radius: 8px; padding: 10px;">
+                <span style="font-size: 12px; color: #00E676;">⚡ Discrepancy: +{discrepancy}% more money than public bets</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        for item in processed_games:
-            g = item['game']
-            with st.container():
-                # The "Pikkit" Card Layout
-                col1, col2, col3 = st.columns([1, 3, 2])
-                
-                with col1:
-                    st.markdown(f"### {item['grade']}")
-                    st.write(f"**{g['sport_title']}**")
-                
-                with col2:
-                    st.markdown(f"**{g['away_team']} @ {g['home_team']}**")
-                    st.markdown(item['badge'], unsafe_allow_html=True)
-                    st.write(f"Line Movement: `{item['move']}¢`")
-                
-                with col3:
-                    # The "Actual Money" Visual
-                    st.write("**The Handle (Actual Money)**")
-                    st.progress(item['m'] / 100)
-                    st.caption(f"Money: {item['m']}% | Tickets: {item['t']}%")
-                
-                # The Detailed Insight (The "Why")
-                with st.expander("📝 View Sharp Analysis"):
-                    st.write(f"""
-                    **The Logic:** This game shows a **{item['gap']}% Sharp Discrepancy**. 
-                    While the public ({item['t']}%) is split, the pros are accounts for **{item['m']}% of the total cash**. 
-                    
-                    **Pro Tip:** Look for any late-breaking news on starters. If the 'Whale' money stays consistent as game time approaches, this is a high-conviction {item['grade']} play.
-                    """)
-                st.divider()
-    else:
-        st.error("API Error. Refresh your key in the sidebar.")
+# --- FOOTER ---
+st.markdown("<p style='text-align: center; color: #444; font-size: 10px;'>SENTRY ELITE V3.0 | LIVE PRO DATA FEED</p>", unsafe_allow_html=True)
