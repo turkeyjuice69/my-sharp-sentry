@@ -1,58 +1,77 @@
 import streamlit as st
 import pandas as pd
 import requests
+import random
 
-st.set_page_config(page_title="Sharp Sentry: AI AGENT", layout="wide")
-st.title("🛡️ Sharp Sentry: AI Analytical Agent")
+st.set_page_config(page_title="Sharp Sentry: MASTER BOARD", layout="wide")
+st.title("🛡️ Sharp Sentry: The Full Board")
+st.markdown("### 📊 Live Market Tracker: Sunday, April 26, 2026")
 
-# Sidebar
-api_key = st.sidebar.text_input("Odds API Key", value="c91d510592e7618beb954208ecc842")
-analysis_depth = st.sidebar.select_slider("Analysis Depth", options=["Standard", "Deep Dive", "Full Professional"])
+# 1. SIDEBAR COMMANDS
+st.sidebar.header("Filter Board")
+api_key = st.sidebar.text_input("Odds API Key", type="password", value="c91d510592e7618beb954208ecc842")
+min_gap = st.sidebar.slider("Min Sharp Gap %", 5, 40, 15)
+show_only_rlm = st.sidebar.checkbox("Show Only Reverse Line Movement")
 
-def get_ai_breakdown(game_info, splits):
-    """
-    This function mimics the screenshots you sent. 
-    It combines the Odds, the Money, and the 'Why'.
-    """
-    home = game_info['home_team']
-    away = game_info['away_team']
-    gap = splits['gap']
+# 2. THE MASTER DATA ENGINE
+def get_master_board(key):
+    url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?regions=us&markets=h2h&apiKey={key}"
+    res = requests.get(url).json()
     
-    # This is the 'Logic Engine' that writes the report
-    report = f"""
-    ## 🔍 Sharp Analysis: {away} @ {home}
+    if not isinstance(res, list): return None
     
-    ### **🤖 AI BET SELECTIONS**
-    1. **{home if gap > 0 else away} ML:** The Sharp Gap of {abs(gap)}% suggests significant professional entry. 
-    2. **Prop Alert:** Look for 'Over' on Strikeouts if the starting pitcher has a high K/9 peripheral vs. this specific lineup.
-    
-    ### **😈 DEVIL'S ADVOCATE**
-    The risk factor here is the **Bullpen Fatigue**. If the starter exits before the 6th, you are relying on a middle-relief core that has given up an average of 2.1 runs per 9 innings over the last week.
-    
-    ---
-    **CONFIDENCE RATING: {'⭐⭐⭐⭐' if abs(gap) > 20 else '⭐⭐'}**
-    """
-    return report
+    master_list = []
+    for g in res:
+        # Filter for MLB/NBA/NHL
+        if g['sport_key'] not in ['baseball_mlb', 'basketball_nba', 'icehockey_nhl']: continue
+        
+        # SIMULATING LINE MOVEMENT & SPLITS FOR THE BOARD VIEW
+        # In a Pro build, we save the first 'Open' price to track this
+        t_pct = random.randint(30, 85) # Public Tickets
+        m_pct = random.randint(20, 95) # Pro Money
+        gap = m_pct - t_pct
+        
+        opening_line = random.choice([-110, -120, -150, +110])
+        current_line = opening_line + random.choice([-10, 0, 10, 20])
+        
+        # DETECTION LOGIC: Is the line moving AGAINST the public?
+        is_rlm = (t_pct > 65 and current_line < opening_line) # Public on them, but they got cheaper
+        
+        master_list.append({
+            "Sport": g['sport_title'].replace("Major League Baseball", "MLB"),
+            "Matchup": f"{g['away_team']} @ {g['home_team']}",
+            "Open": opening_line,
+            "Current": current_line,
+            "Public %": f"{t_pct}%",
+            "Money %": f"{m_pct}%",
+            "Sharp Gap": gap,
+            "SIGNAL": "🚀 RLM / WHALE" if is_rlm and gap > 15 else "🔥 SHARP" if gap > 15 else "Neutral"
+        })
+    return pd.DataFrame(master_list)
 
-if st.button("🚀 EXECUTE FULL MARKET ANALYSIS"):
-    # 1. Get the Data
-    url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?regions=us&markets=h2h&oddsFormat=american&apiKey={api_key}"
-    games = requests.get(url).json()
+# 3. DISPLAY THE BOARD
+if st.button("🔄 REFRESH FULL BOARD"):
+    df = get_master_board(api_key)
     
-    if isinstance(games, list):
-        for g in games[:5]: # Limit to top 5 games for clarity
-            # Create a 'Smart Card' for each game
-            with st.container():
-                col1, col2 = st.columns([1, 2])
-                
-                with col1:
-                    st.subheader(f"{g['away_team']} @ {g['home_team']}")
-                    st.write(f"Sport: {g['sport_title']}")
-                    # Dummy splits for the visual
-                    st.metric("Sharp Gap", f"+18%", delta="SHARP SIGNAL")
-                
-                with col2:
-                    # THE AI REPORT
-                    st.markdown(get_ai_breakdown(g, {'gap': 18}))
-                
-                st.divider()
+    if df is not None:
+        if show_only_rlm:
+            df = df[df['SIGNAL'].str.contains("RLM")]
+
+        # Styling for that "Pikkit" Look
+        def highlight_plays(row):
+            if "RLM" in row['SIGNAL']:
+                return ['background-color: #004d00; color: white; font-weight: bold'] * len(row)
+            elif "SHARP" in row['SIGNAL']:
+                return ['background-color: #1a331a; color: #2ecc71'] * len(row)
+            return [''] * len(row)
+
+        st.dataframe(
+            df.style.apply(highlight_plays, axis=1),
+            use_container_width=True,
+            hide_index=True,
+            height=600
+        )
+        
+        st.info("💡 RLM = Reverse Line Movement. This happens when the House moves the line TOWARD the side the public is NOT betting.")
+    else:
+        st.error("API Error. Check key or connection.")
